@@ -96,7 +96,7 @@ function ConvertTo-ADFSBase64CertData {
         else {
             $certBase64 = [System.Convert]::ToBase64String($cert.RawData)
         }
-        $template = "{0}`r`n{1}`r`n`r`n{2}" -f $ADFSCert.CertType, $cert.Subject, $certBase64
+        $template = "{0}`r`n{1}`r`n`r`n{2}`r`n`r`n" -f $ADFSCert.CertType, $cert.Subject, $certBase64
         return $template
     }
 }
