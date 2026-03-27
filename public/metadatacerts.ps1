@@ -1,9 +1,13 @@
 class ADFSCertObject {
     [string]$CertType
+    [datetime]$ExpirationDate
+    [string]$Thumbprint
     [System.Security.Cryptography.X509Certificates.X509Certificate2]$CertData
     ADFSCertObject([string]$CertType, [System.Security.Cryptography.X509Certificates.X509Certificate2]$CertData) {
         $this.CertType = $CertType
         $this.CertData = $CertData
+        $this.ExpirationDate = $CertData.NotAfter
+        $this.Thumbprint = $CertData.Thumbprint
     }
 }
 
@@ -47,12 +51,18 @@ function Get-ADFSCertsFromMetadataURL {
     )
 
     $Metadata = Invoke-RestMethod -Uri $MetadataURL
-
-    $_SigningCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new([System.Text.Encoding]::ASCII.GetBytes($metadata.EntityDescriptor.IDPSSODescriptor.KeyDescriptor.where({ $_.use -eq 'signing' }).KeyInfo.X509Data.X509Certificate))
+    [object[]]$_SigningCerts = $metadata.EntityDescriptor.IDPSSODescriptor.KeyDescriptor.where({ $_.use -eq 'signing' })
+    [System.Security.Cryptography.X509Certificates.X509Certificate2[]]$_SigningCertsX5092 = $_SigningCerts | ForEach-Object {
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]::new([System.Text.Encoding]::ASCII.GetBytes($_.KeyInfo.X509Data.X509Certificate))
+    }
+    # $_SigningCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new([System.Text.Encoding]::ASCII.GetBytes($metadata.EntityDescriptor.IDPSSODescriptor.KeyDescriptor.where({ $_.use -eq 'signing' }).KeyInfo.X509Data.X509Certificate))
     $_EncryptionCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new([System.Text.Encoding]::ASCII.GetBytes($metadata.EntityDescriptor.IDPSSODescriptor.KeyDescriptor.where({ $_.use -eq 'encryption' }).KeyInfo.X509Data.X509Certificate))
 
     $certs = @()
-    $certs += [ADFSCertObject]::new('Signing', $_SigningCert)
+    $_SigningCertsX5092 | ForEach-Object {
+         $certs += [ADFSCertObject]::new('Signing', $_)
+    }
+    # $certs += [ADFSCertObject]::new('Signing', $_SigningCert)
     $certs += [ADFSCertObject]::new('Encryption', $_EncryptionCert)
 
     if ($ExportCertsHere) {
